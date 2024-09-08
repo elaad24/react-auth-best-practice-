@@ -11,6 +11,7 @@ const router = Router();
 
 // Login route: Simulates user login and sends access_token and refresh_token
 router.post("/login", (req: Request, res: Response) => {
+  console.log("has tried to log in ");
   const userId = 1;
 
   // Create access and refresh tokens
@@ -18,18 +19,28 @@ router.post("/login", (req: Request, res: Response) => {
   const refreshToken = createRefreshToken(userId);
 
   // Send refresh_token as HttpOnly cookie and access_token in response body
+  res.cookie("refresh_token", refreshToken, {
+    httpOnly: true,
+    secure: false, // Set to true in production with HTTPS
+    sameSite: "strict",
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  });
+
+  // set the access token
   res
-    .cookie("refresh_token", refreshToken, {
-      httpOnly: true,
+    .cookie("access_token", accessToken, {
+      httpOnly: false,
       secure: false, // Set to true in production with HTTPS
       sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 30 * 60 * 1000, //30 minutes
     })
     .json({ access_token: accessToken });
 });
 
 // Refresh token route: Verifies refresh_token and sends new access_token
 router.get("/refresh-token", (req: AuthRequest, res: Response) => {
+  console.log("has tried to regenerate access_token ");
+
   const refreshToken = req.cookies.refresh_token;
 
   if (!refreshToken) {
@@ -39,7 +50,14 @@ router.get("/refresh-token", (req: AuthRequest, res: Response) => {
   try {
     const userId = verifyRefreshToken(refreshToken); // Verify the refresh token
     const newAccessToken = createAccessToken(userId); // Create new access token
-    res.json({ access_token: newAccessToken });
+    res
+      .cookie("access_token", newAccessToken, {
+        httpOnly: false,
+        secure: false, // Set to true in production with HTTPS
+        sameSite: "strict",
+        maxAge: 30 * 60 * 1000, //30 minutes
+      })
+      .json({ access_token: newAccessToken });
   } catch (error) {
     return res.status(401).json({ message: "Invalid refresh token" });
   }
