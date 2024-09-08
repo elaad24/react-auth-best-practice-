@@ -1,16 +1,36 @@
-// auth/RequireAuth.tsx
-import React from "react";
+import { useEffect, useState } from "react";
 import { Navigate, Outlet } from "react-router-dom";
-import { useAuth } from "./AuthContext";
+import { getCookie } from "../utils/cookieHelpers";
+import { refreshAccessToken } from "../api/authRequests";
 
-const RequireAuth: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+const RequireAuth = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
+  useEffect(() => {
+    const checkToken = async () => {
+      try {
+        const accessToken = getCookie("access_token");
+        if (!accessToken) {
+          const newToken = await refreshAccessToken();
+          console.log(newToken);
+          setIsAuthenticated(!!newToken);
+        } else {
+          setIsAuthenticated(true);
+        }
+        setIsLoading(false);
+      } catch (error) {
+        console.log("error", error);
 
-  return <Outlet />;
+        setIsLoading(false);
+      }
+    };
+    checkToken();
+  }, []);
+
+  if (isLoading) return <div>Loading...</div>;
+
+  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
 };
 
 export default RequireAuth;

@@ -14,18 +14,18 @@ const processQueue = (error: any, token: string | null = null) => {
       prom.reject(error);
     }
   });
-
   failedQueue = [];
 };
 
+// Axios instance
 const apiClient = axios.create({
   baseURL: baseUrl,
-  withCredentials: true, // Needed for sending cookies
+  withCredentials: true,
 });
 
 apiClient.interceptors.request.use(
   (config) => {
-    const accessToken = getCookie("access_token"); // Use custom getCookie function
+    const accessToken = getCookie("access_token");
     if (accessToken) {
       config.headers["Authorization"] = `Bearer ${accessToken}`;
     }
@@ -38,8 +38,13 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const refresh_token = getCookie("refresh_token");
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      refresh_token
+    ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -66,7 +71,7 @@ apiClient.interceptors.response.use(
         }
       } catch (err) {
         processQueue(err, null);
-        return Promise.reject(err);
+        throw err;
       } finally {
         isRefreshing = false;
       }
